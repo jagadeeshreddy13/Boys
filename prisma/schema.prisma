@@ -1,0 +1,524 @@
+// Prisma schema for Sri Srinivasa Hostel ERP
+// PostgreSQL production configuration
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RoleType {
+  OWNER
+  MANAGER
+  ACCOUNTANT
+  WARDEN
+  MAINTENANCE_STAFF
+  RESIDENT
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+enum ResidentStatus {
+  ACTIVE
+  RESERVED
+  NOTICE_PERIOD
+  CHECKED_OUT
+  BLOCKED
+}
+
+enum RoomType {
+  SINGLE
+  TWO_SHARING
+  THREE_SHARING
+  FOUR_SHARING
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  BANK_TRANSFER
+  ONLINE
+}
+
+enum PaymentStatus {
+  SUCCESS
+  PENDING
+  FAILED
+  REFUNDED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum ComplaintStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ExpenseCategoryEnum {
+  ELECTRICITY
+  WATER
+  INTERNET
+  FOOD
+  SALARY
+  CLEANING
+  MAINTENANCE
+  PURCHASES
+  PROPERTY_RENT
+  OTHER
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String
+  name         String
+  phone        String
+  avatar       String?
+  role         RoleType    @default(RESIDENT)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  resident     Resident?
+  staff        Staff?
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Hostel {
+  id             String      @id @default(uuid())
+  name           String
+  tagline        String?
+  address        String
+  city           String
+  state          String
+  pincode        String
+  phone          String
+  email          String
+  gstin          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  buildings      Building[]
+  feePlans       FeePlan[]
+  expenses       Expense[]
+
+  @@map("hostels")
+}
+
+model Building {
+  id          String      @id @default(uuid())
+  hostelId    String
+  hostel      Hostel      @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  name        String
+  code        String
+  floors      Floor[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([hostelId, code])
+  @@map("buildings")
+}
+
+model Floor {
+  id          String      @id @default(uuid())
+  buildingId  String
+  building    Building    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  name        String
+  floorNumber Int
+  rooms       Room[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([buildingId, floorNumber])
+  @@map("floors")
+}
+
+model Room {
+  id          String      @id @default(uuid())
+  floorId     String
+  floor       Floor       @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  roomNumber  String
+  roomType    RoomType
+  capacity    Int
+  monthlyRent Decimal     @db.Decimal(10, 2)
+  facilities  String[]
+  status      String      @default("ACTIVE")
+  beds        Bed[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([floorId, roomNumber])
+  @@map("rooms")
+}
+
+model Bed {
+  id               String          @id @default(uuid())
+  roomId           String
+  room             Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bedNumber        String          // e.g., 'A', 'B', 'C', 'D'
+  status           BedStatus       @default(AVAILABLE)
+  monthlyRent      Decimal         @db.Decimal(10, 2)
+  maintenanceNotes String?
+  allocations      BedAllocation[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([roomId, bedNumber])
+  @@index([status])
+  @@map("beds")
+}
+
+model Resident {
+  id                     String           @id // Format: SSH-YYYY-XXX
+  userId                 String?          @unique
+  user                   User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName               String
+  photoUrl               String?
+  mobile                 String           @unique
+  email                  String
+  dob                    DateTime
+  gender                 String           @default("MALE")
+  emergencyContactName   String
+  emergencyContactRelation String
+  emergencyContactPhone  String
+  collegeOrCompany       String
+  courseOrDesignation    String
+  permanentAddress       String
+  currentAddress         String
+  idProofType            String
+  idProofNumber          String
+  joiningDate            DateTime
+  status                 ResidentStatus   @default(ACTIVE)
+  feePlanId              String
+  feePlan                FeePlan          @relation(fields: [feePlanId], references: [id])
+  securityDeposit        Decimal          @db.Decimal(10, 2)
+  monthlyRent            Decimal          @db.Decimal(10, 2)
+  outstandingBalance     Decimal          @default(0) @db.Decimal(10, 2)
+  documents              ResidentDocument[]
+  allocations            BedAllocation[]
+  invoices               Invoice[]
+  payments               Payment[]
+  complaints             Complaint[]
+  visitorLogs            VisitorLog[]
+  checkoutRecords        CheckoutRecord[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@index([status])
+  @@map("residents")
+}
+
+model ResidentDocument {
+  id         String   @id @default(uuid())
+  residentId String
+  resident   Resident @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  name       String
+  type       String
+  url        String
+  verified   Boolean  @default(false)
+  uploadedAt DateTime @default(now())
+
+  @@map("resident_documents")
+}
+
+model BedAllocation {
+  id         String    @id @default(uuid())
+  bedId      String
+  bed        Bed       @relation(fields: [bedId], references: [id], onDelete: Restrict)
+  residentId String
+  resident   Resident  @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  startDate  DateTime  @default(now())
+  endDate    DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([bedId, isActive])
+  @@index([residentId, isActive])
+  @@map("bed_allocations")
+}
+
+model FeePlan {
+  id                 String     @id @default(uuid())
+  hostelId           String
+  hostel             Hostel     @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  name               String
+  roomType           RoomType
+  baseMonthlyRent    Decimal    @db.Decimal(10, 2)
+  securityDeposit    Decimal    @db.Decimal(10, 2)
+  foodCharges        Decimal    @default(0) @db.Decimal(10, 2)
+  electricityCharges Decimal    @default(0) @db.Decimal(10, 2)
+  laundryCharges     Decimal    @default(0) @db.Decimal(10, 2)
+  wifiCharges        Decimal    @default(0) @db.Decimal(10, 2)
+  otherCharges       Decimal    @default(0) @db.Decimal(10, 2)
+  lateFeePerDay      Decimal    @default(100) @db.Decimal(10, 2)
+  description        String?
+  isActive           Boolean    @default(true)
+  residents          Resident[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@map("fee_plans")
+}
+
+model Invoice {
+  id                 String        @id @default(uuid())
+  invoiceNumber      String        @unique
+  residentId         String
+  resident           Resident      @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  billingPeriod      String
+  subtotal           Decimal       @db.Decimal(10, 2)
+  discount           Decimal       @default(0) @db.Decimal(10, 2)
+  totalAmount        Decimal       @db.Decimal(10, 2)
+  paidAmount         Decimal       @default(0) @db.Decimal(10, 2)
+  outstandingBalance Decimal       @db.Decimal(10, 2)
+  dueDate            DateTime
+  issueDate          DateTime      @default(now())
+  status             InvoiceStatus @default(PENDING)
+  notes              String?
+  items              InvoiceItem[]
+  payments           Payment[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([residentId, billingPeriod])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String
+  createdAt   DateTime @default(now())
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  receiptNumber   String        @unique
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  residentId      String
+  resident        Resident      @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  amount          Decimal       @db.Decimal(10, 2)
+  amountInWords   String
+  paymentDate     DateTime      @default(now())
+  paymentMethod   PaymentMethod
+  referenceNumber String
+  gatewayOrderId  String?
+  status          PaymentStatus @default(SUCCESS)
+  collectedBy     String
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  @@index([residentId])
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+model Expense {
+  id                String              @id @default(uuid())
+  hostelId          String
+  hostel            Hostel              @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  category          ExpenseCategoryEnum
+  amount            Decimal             @db.Decimal(10, 2)
+  date              DateTime
+  description       String
+  vendor            String
+  paymentMethod     PaymentMethod
+  receiptAttachment String?
+  createdBy         String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([category])
+  @@index([date])
+  @@map("expenses")
+}
+
+model Complaint {
+  id               String            @id @default(uuid())
+  residentId       String
+  resident         Resident          @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  roomNumber       String
+  bedNumber        String?
+  category         String
+  priority         ComplaintPriority @default(MEDIUM)
+  description      String
+  status           ComplaintStatus   @default(NEW)
+  assignedStaffId  String?
+  staff            Staff?            @relation(fields: [assignedStaffId], references: [id])
+  repairCost       Decimal?          @db.Decimal(10, 2)
+  workNotes        String?
+  photoUrl         String?
+  resolvedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@map("complaints")
+}
+
+model Staff {
+  id          String      @id @default(uuid())
+  userId      String?     @unique
+  user        User?       @relation(fields: [userId], references: [id])
+  name        String
+  role        String
+  phone       String
+  joiningDate DateTime
+  salary      Decimal     @db.Decimal(10, 2)
+  status      String      @default("ACTIVE")
+  complaints  Complaint[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("staff")
+}
+
+model InventoryItem {
+  id                String   @id @default(uuid())
+  name              String
+  sku               String   @unique
+  category          String
+  totalQuantity     Int
+  availableQuantity Int
+  inUseQuantity     Int
+  damagedQuantity   Int      @default(0)
+  unit              String
+  purchasePrice     Decimal  @db.Decimal(10, 2)
+  purchaseDate      DateTime
+  supplier          String
+  condition         String   @default("GOOD")
+  location          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
+model VisitorLog {
+  id          String    @id @default(uuid())
+  visitorName String
+  mobile      String
+  idProof     String
+  residentId  String
+  resident    Resident  @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  roomNumber  String
+  purpose     String
+  entryTime   DateTime  @default(now())
+  exitTime    DateTime?
+  status      String    @default("CHECKED_IN")
+  approver    String
+  createdAt   DateTime  @default(now())
+
+  @@map("visitor_logs")
+}
+
+model Announcement {
+  id             String   @id @default(uuid())
+  title          String
+  message        String
+  priority       String   @default("NORMAL")
+  targetAudience String   @default("ALL")
+  targetValue    String?
+  startDate      DateTime
+  expiryDate     DateTime
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  @@map("announcements")
+}
+
+model CheckoutRecord {
+  id                    String   @id @default(uuid())
+  residentId            String
+  resident              Resident @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  roomNumber            String
+  bedNumber             String
+  checkoutDate          DateTime @default(now())
+  depositPaid           Decimal  @db.Decimal(10, 2)
+  pendingDues           Decimal  @db.Decimal(10, 2)
+  damageCharges         Decimal  @default(0) @db.Decimal(10, 2)
+  damageNotes           String?
+  refundAmount          Decimal  @default(0) @db.Decimal(10, 2)
+  amountDueFromResident Decimal  @default(0) @db.Decimal(10, 2)
+  settlementStatus      String   @default("COMPLETED")
+  processedBy           String
+  createdAt             DateTime @default(now())
+
+  @@map("checkout_records")
+}
+
+model CanteenProduct {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  price       Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  image       String?
+  createdAt   DateTime @default(now())
+
+  @@map("canteen_products")
+}
+
+model CanteenOrder {
+  id            String   @id @default(uuid())
+  orderNumber   String   @unique
+  residentId    String?
+  residentName  String?
+  roomNumber    String?
+  items         Json
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  paymentMethod String
+  status        String   @default("COMPLETED")
+  createdAt     DateTime @default(now())
+
+  @@map("canteen_orders")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName  String
+  role      String
+  action    String
+  entity    String
+  entityId  String
+  details   String?
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}

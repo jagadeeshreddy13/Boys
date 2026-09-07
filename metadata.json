@@ -1,0 +1,6 @@
+{
+  "name": "Sri Srinivasa Hostel ERP",
+  "description": "Production-ready Hostel Management ERP for Sri Srinivasa Boys' Hostel in India, featuring admissions, room & bed allocation, automated billing, payment records, complaints, staff & visitor management, and resident portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

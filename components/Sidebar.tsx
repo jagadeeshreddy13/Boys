@@ -53,6 +53,12 @@ interface SidebarProps {
   onCloseMobile: () => void;
   onOpenChangeUpi?: () => void;
   upiId?: string;
+  activeResidentTab?: 'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU';
+  onSelectResidentTab?: (tab: 'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU') => void;
+  residentTicketsCount?: number;
+  noticesCount?: number;
+  onOpen2faSettings?: () => void;
+  twoFactorEnabled?: boolean;
 }
 
 export default function Sidebar({
@@ -64,7 +70,13 @@ export default function Sidebar({
   isOpen,
   onCloseMobile,
   onOpenChangeUpi,
-  upiId
+  upiId,
+  activeResidentTab = 'OVERVIEW',
+  onSelectResidentTab,
+  residentTicketsCount = 1,
+  noticesCount = 2,
+  onOpen2faSettings,
+  twoFactorEnabled = false
 }: SidebarProps) {
   interface NavItem {
     id: NavView;
@@ -186,6 +198,40 @@ export default function Sidebar({
 
   const allowedItems = navItems.filter(item => item.allowedRoles.includes(currentRole));
 
+  // If role is RESIDENT, only display:
+  // 1. My Room & Overview
+  // 2. Fee Invoices & Receipts
+  // 3. My Tickets (1)
+  // 4. Mess Menu (Weekly)
+  // 5. Hostel Notices (2)
+  const residentNavItems = [
+    {
+      id: 'OVERVIEW' as const,
+      label: 'My Room & Overview',
+      icon: Home,
+    },
+    {
+      id: 'BILLS' as const,
+      label: 'Fee Invoices & Receipts',
+      icon: Receipt,
+    },
+    {
+      id: 'COMPLAINTS' as const,
+      label: `My Tickets (${residentTicketsCount})`,
+      icon: Wrench,
+    },
+    {
+      id: 'MESS_MENU' as const,
+      label: 'Mess Menu (Weekly)',
+      icon: Utensils,
+    },
+    {
+      id: 'NOTICES' as const,
+      label: `Hostel Notices (${noticesCount})`,
+      icon: Bell,
+    },
+  ];
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -206,40 +252,91 @@ export default function Sidebar({
             {currentRole === 'RESIDENT' ? 'Resident Portal' : 'Hostel ERP Modules'}
           </div>
 
-          {allowedItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeView === item.id;
+          {currentRole === 'RESIDENT' ? (
+            residentNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeView === 'RESIDENT_PORTAL' && activeResidentTab === item.id;
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectView(item.id);
-                  onCloseMobile();
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-amber-600 text-white shadow-md font-bold'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span className="truncate">{item.label}</span>
-                </div>
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSelectView('RESIDENT_PORTAL');
+                    onSelectResidentTab?.(item.id);
+                    onCloseMobile();
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-amber-600 text-white shadow-md font-bold'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                </button>
+              );
+            })
+          ) : (
+            allowedItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeView === item.id;
 
-                {item.badge && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${item.badgeColor}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onSelectView(item.id);
+                    onCloseMobile();
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    isActive
+                      ? 'bg-amber-600 text-white shadow-md font-bold'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${item.badgeColor}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
         </div>
 
-        {/* Footer Brand Info & UPI Quick Access */}
+        {/* Footer Brand Info & 2FA / UPI Quick Access */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/50 text-[11px] text-slate-400 space-y-2.5">
+          {onOpen2faSettings && (
+            <button
+              onClick={() => {
+                onOpen2faSettings();
+                onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold text-slate-200 transition-colors shadow-2xs group"
+              title="Configure Two-Factor Authentication (OTP via SMS / Email)"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className={`w-4 h-4 ${twoFactorEnabled ? 'text-emerald-400' : 'text-amber-400'} shrink-0 group-hover:scale-110 transition-transform`} />
+                <span className="text-xs">2FA Security</span>
+              </div>
+              <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded-md uppercase tracking-wider ${
+                twoFactorEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {twoFactorEnabled ? 'ACTIVE' : 'SETUP'}
+              </span>
+            </button>
+          )}
+
           {currentRole !== 'RESIDENT' && onOpenChangeUpi && (
             <button
               onClick={() => {

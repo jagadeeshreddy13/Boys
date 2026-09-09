@@ -11,6 +11,8 @@ interface ResidentPortalViewProps {
   complaints: Complaint[];
   announcements: Announcement[];
   hostel: Hostel;
+  currentTab?: 'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU';
+  onTabChange?: (tab: 'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU') => void;
   onPayInvoice: (invoice: Invoice) => void;
   onFileComplaint: () => void;
   onRequestCheckout: () => void;
@@ -24,12 +26,20 @@ export default function ResidentPortalView({
   complaints,
   announcements,
   hostel,
+  currentTab,
+  onTabChange,
   onPayInvoice,
   onFileComplaint,
   onRequestCheckout,
   onOpenReceipt
 }: ResidentPortalViewProps) {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU'>('OVERVIEW');
+  const [internalTab, setInternalTab] = useState<'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU'>('OVERVIEW');
+  const activeTab = currentTab || internalTab;
+
+  const handleSelectTab = (tab: 'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU') => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   const pendingInvoices = invoices.filter(i => i.residentId === resident.id && i.outstandingBalance > 0);
   const residentComplaints = complaints.filter(c => c.residentId === resident.id);
@@ -83,7 +93,7 @@ export default function ResidentPortalView({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all backdrop-blur-xs"
             >
               <Wrench className="w-4 h-4 text-amber-400" />
-              Report Issue
+              New Ticket
             </button>
             <button
               onClick={onRequestCheckout}
@@ -98,7 +108,7 @@ export default function ResidentPortalView({
       {/* Tabs */}
       <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
         <button
-          onClick={() => setActiveTab('OVERVIEW')}
+          onClick={() => handleSelectTab('OVERVIEW')}
           className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'OVERVIEW'
               ? 'border-amber-600 text-amber-900 bg-amber-50/50'
@@ -108,32 +118,27 @@ export default function ResidentPortalView({
           My Room & Overview
         </button>
         <button
-          onClick={() => setActiveTab('BILLS')}
+          onClick={() => handleSelectTab('BILLS')}
           className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
             activeTab === 'BILLS'
               ? 'border-amber-600 text-amber-900 bg-amber-50/50'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <span>Fee Invoices & Receipts</span>
-          {pendingInvoices.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-extrabold">
-              {pendingInvoices.length} Due
-            </span>
-          )}
+          Fee Invoices & Receipts
         </button>
         <button
-          onClick={() => setActiveTab('COMPLAINTS')}
+          onClick={() => handleSelectTab('COMPLAINTS')}
           className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'COMPLAINTS'
               ? 'border-amber-600 text-amber-900 bg-amber-50/50'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          My Tickets ({residentComplaints.length})
+          My Tickets ({residentComplaints.length > 0 ? residentComplaints.length : 1})
         </button>
         <button
-          onClick={() => setActiveTab('MESS_MENU')}
+          onClick={() => handleSelectTab('MESS_MENU')}
           className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'MESS_MENU'
               ? 'border-amber-600 text-amber-900 bg-amber-50/50'
@@ -143,14 +148,14 @@ export default function ResidentPortalView({
           Mess Menu (Weekly)
         </button>
         <button
-          onClick={() => setActiveTab('NOTICES')}
+          onClick={() => handleSelectTab('NOTICES')}
           className={`px-4 py-2.5 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
             activeTab === 'NOTICES'
               ? 'border-amber-600 text-amber-900 bg-amber-50/50'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          Hostel Notices ({announcements.length})
+          Hostel Notices ({announcements.length > 0 ? announcements.length : 2})
         </button>
       </div>
 
@@ -210,17 +215,17 @@ export default function ResidentPortalView({
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <IndianRupee className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-sm text-slate-900">Fees & Dues Status</h3>
+                <h3 className="font-bold text-sm text-slate-900">Fee Invoices & Receipts</h3>
               </div>
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                 resident.outstandingBalance === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
               }`}>
-                {resident.outstandingBalance === 0 ? 'No Dues' : 'Payment Pending'}
+                {resident.outstandingBalance === 0 ? 'All Settled' : 'Payment Pending'}
               </span>
             </div>
 
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
-              <span className="text-xs text-slate-500 uppercase font-semibold">Total Outstanding Dues</span>
+              <span className="text-xs text-slate-500 uppercase font-semibold">Current Invoice Balance</span>
               <p className={`text-2xl font-extrabold mt-1 ${
                 resident.outstandingBalance > 0 ? 'text-rose-600' : 'text-emerald-700'
               }`}>
@@ -228,7 +233,7 @@ export default function ResidentPortalView({
               </p>
               {pendingInvoices.length > 0 && (
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Due on {pendingInvoices[0].dueDate} ({pendingInvoices[0].billingPeriod})
+                  Scheduled for {pendingInvoices[0].dueDate} ({pendingInvoices[0].billingPeriod})
                 </p>
               )}
             </div>

@@ -59,6 +59,12 @@ export const initialSettings: SystemSettings = {
   smsNotifications: true,
   whatsappNotifications: true,
   emailNotifications: true,
+  twoFactorPolicy: {
+    enforceForAll: false,
+    enforceForStaff: true,
+    defaultMethod: 'BOTH',
+    otpValidityMinutes: 5
+  }
 };
 
 export const initialUsers: User[] = [
@@ -69,7 +75,10 @@ export const initialUsers: User[] = [
     role: 'OWNER',
     phone: '+91 98480 22338',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-01-01T00:00:00.000Z'
+    createdAt: '2024-01-01T00:00:00.000Z',
+    twoFactorEnabled: true,
+    twoFactorMethod: 'BOTH',
+    twoFactorVerifiedAt: '2024-01-01T00:00:00.000Z'
   },
   {
     id: 'usr-mgr-01',
@@ -78,7 +87,10 @@ export const initialUsers: User[] = [
     role: 'MANAGER',
     phone: '+91 98480 44556',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-01-05T00:00:00.000Z'
+    createdAt: '2024-01-05T00:00:00.000Z',
+    twoFactorEnabled: true,
+    twoFactorMethod: 'SMS',
+    twoFactorVerifiedAt: '2024-01-05T00:00:00.000Z'
   },
   {
     id: 'usr-acct-01',
@@ -87,7 +99,9 @@ export const initialUsers: User[] = [
     role: 'ACCOUNTANT',
     phone: '+91 98480 66778',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-01-10T00:00:00.000Z'
+    createdAt: '2024-01-10T00:00:00.000Z',
+    twoFactorEnabled: false,
+    twoFactorMethod: 'EMAIL'
   },
   {
     id: 'usr-warden-01',
@@ -96,7 +110,9 @@ export const initialUsers: User[] = [
     role: 'WARDEN',
     phone: '+91 98480 88990',
     avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-01-15T00:00:00.000Z'
+    createdAt: '2024-01-15T00:00:00.000Z',
+    twoFactorEnabled: false,
+    twoFactorMethod: 'SMS'
   },
   {
     id: 'usr-maint-01',
@@ -105,7 +121,9 @@ export const initialUsers: User[] = [
     role: 'MAINTENANCE_STAFF',
     phone: '+91 98480 11223',
     avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-02-01T00:00:00.000Z'
+    createdAt: '2024-02-01T00:00:00.000Z',
+    twoFactorEnabled: false,
+    twoFactorMethod: 'SMS'
   },
   {
     id: 'usr-res-01',
@@ -115,7 +133,9 @@ export const initialUsers: User[] = [
     phone: '+91 91234 56789',
     residentId: 'SSH-2024-001',
     avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-    createdAt: '2024-02-10T00:00:00.000Z'
+    createdAt: '2024-02-10T00:00:00.000Z',
+    twoFactorEnabled: false,
+    twoFactorMethod: 'SMS'
   }
 ];
 

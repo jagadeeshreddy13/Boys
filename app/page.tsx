@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   User,
   UserRole,
@@ -16,7 +16,8 @@ import {
   Bed,
   Room,
   Hostel,
-  CheckoutRecord
+  CheckoutRecord,
+  TwoFactorPolicy
 } from '@/lib/db/types';
 import Navbar from '@/components/Navbar';
 import Sidebar, { NavView } from '@/components/Sidebar';
@@ -32,9 +33,12 @@ import CanteenPOSModal from '@/components/CanteenPOSModal';
 import AutomatedBillingModal from '@/components/AutomatedBillingModal';
 import AddRoomModal from '@/components/AddRoomModal';
 import ChangeUpiModal from '@/components/ChangeUpiModal';
+import MobileNav from '@/components/MobileNav';
 import ResidentPortalView from '@/components/ResidentPortalView';
 import AuditTrailView from '@/components/AuditTrailView';
 import ReportingView from '@/components/ReportingView';
+import LoginModal from '@/components/LoginModal';
+import TwoFactorSettingsModal from '@/components/TwoFactorSettingsModal';
 import ToastContainer, { ToastMessage } from '@/components/Toast';
 
 import {
@@ -151,6 +155,14 @@ export default function App() {
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [isChangeUpiOpen, setIsChangeUpiOpen] = useState(false);
 
+  // 2FA & Authentication Modals & Policy
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [is2faSettingsOpen, setIs2faSettingsOpen] = useState(false);
+  const [twoFactorPolicy, setTwoFactorPolicy] = useState<TwoFactorPolicy | undefined>(undefined);
+
+  // Resident Portal Tab Navigation (My Room & Overview, Fee Invoices & Receipts, My Tickets (1), Mess Menu (Weekly), Hostel Notices (2))
+  const [residentPortalTab, setResidentPortalTab] = useState<'OVERVIEW' | 'BILLS' | 'COMPLAINTS' | 'NOTICES' | 'MESS_MENU'>('OVERVIEW');
+
   // Document Print Modal
   const [isPrintDocOpen, setIsPrintDocOpen] = useState(false);
   const [docModalType, setDocModalType] = useState<'INVOICE' | 'RECEIPT'>('INVOICE');
@@ -168,6 +180,7 @@ export default function App() {
 
   // Toast Notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [dbStatus, setDbStatus] = useState<any>(null);
 
   const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -181,104 +194,139 @@ export default function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
+    let success = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch('/api/bootstrap', {
+          cache: 'no-store',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server returned status ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || 'Bootstrap payload error');
+        }
+
+        if (data.auth?.availableUsers) setAvailableUsers(data.auth.availableUsers);
+        if (data.twoFactorPolicy) setTwoFactorPolicy(data.twoFactorPolicy);
+        if (data.dashboard) setDashboardData(data.dashboard);
+        if (data.hostel) setHostel(data.hostel);
+        if (Array.isArray(data.rooms)) setRooms(data.rooms);
+        if (Array.isArray(data.beds)) setBeds(data.beds);
+        if (Array.isArray(data.residents)) setResidents(data.residents);
+        if (Array.isArray(data.invoices)) setInvoices(data.invoices);
+        if (Array.isArray(data.payments)) setPayments(data.payments);
+        if (Array.isArray(data.complaints)) setComplaints(data.complaints);
+        if (Array.isArray(data.expenses)) setExpenses(data.expenses);
+        if (Array.isArray(data.inventory)) setInventory(data.inventory);
+        if (Array.isArray(data.visitors)) setVisitors(data.visitors);
+        if (Array.isArray(data.staff)) setStaffList(data.staff);
+        if (Array.isArray(data.announcements)) setAnnouncements(data.announcements);
+        if (Array.isArray(data.auditLogs)) setAuditLogs(data.auditLogs);
+        if (Array.isArray(data.checkoutRecords)) setCheckoutRecords(data.checkoutRecords);
+        if (data.dbStatus) setDbStatus(data.dbStatus);
+        success = true;
+        break;
+      } catch {
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+      }
+    }
+
+    if (success) return;
+
+    // Resilient fallback using individual endpoints with Promise.allSettled
     try {
-      const [
-        authRes,
-        dashRes,
-        roomsRes,
-        bedsRes,
-        resRes,
-        invRes,
-        payRes,
-        cmpRes,
-        expRes,
-        invtRes,
-        visRes,
-        stfRes,
-        ancRes,
-        audRes,
-        chkRes
-      ] = await Promise.all([
-        fetch('/api/auth'),
-        fetch('/api/dashboard'),
-        fetch('/api/rooms'),
-        fetch('/api/beds'),
-        fetch('/api/residents'),
-        fetch('/api/invoices'),
-        fetch('/api/payments'),
-        fetch('/api/complaints'),
-        fetch('/api/expenses'),
-        fetch('/api/inventory'),
-        fetch('/api/visitors'),
-        fetch('/api/staff'),
-        fetch('/api/announcements'),
-        fetch('/api/audit'),
-        fetch('/api/checkout')
+      const results = await Promise.allSettled([
+        fetch('/api/auth').then(r => r.ok ? r.json() : null),
+        fetch('/api/dashboard').then(r => r.ok ? r.json() : null),
+        fetch('/api/rooms').then(r => r.ok ? r.json() : null),
+        fetch('/api/beds').then(r => r.ok ? r.json() : null),
+        fetch('/api/residents').then(r => r.ok ? r.json() : null),
+        fetch('/api/invoices').then(r => r.ok ? r.json() : null),
+        fetch('/api/payments').then(r => r.ok ? r.json() : null),
+        fetch('/api/complaints').then(r => r.ok ? r.json() : null),
+        fetch('/api/expenses').then(r => r.ok ? r.json() : null),
+        fetch('/api/inventory').then(r => r.ok ? r.json() : null),
+        fetch('/api/visitors').then(r => r.ok ? r.json() : null),
+        fetch('/api/staff').then(r => r.ok ? r.json() : null),
+        fetch('/api/announcements').then(r => r.ok ? r.json() : null),
+        fetch('/api/audit').then(r => r.ok ? r.json() : null),
+        fetch('/api/checkout').then(r => r.ok ? r.json() : null),
+        fetch('/api/db/status').then(r => r.ok ? r.json() : null)
       ]);
 
-      const authData = await authRes.json();
-      if (authData.availableUsers) setAvailableUsers(authData.availableUsers);
+      const getVal = (idx: number) => {
+        const item = results[idx];
+        return item.status === 'fulfilled' ? item.value : null;
+      };
 
-      const dashData = await dashRes.json();
-      setDashboardData(dashData);
-      if (dashData.hostel) setHostel(dashData.hostel);
+      const authData = getVal(0);
+      if (authData?.availableUsers) setAvailableUsers(authData.availableUsers);
 
-      const roomsData = await roomsRes.json();
-      setRooms(roomsData.rooms || []);
+      const dashData = getVal(1);
+      if (dashData) {
+        setDashboardData(dashData);
+        if (dashData.hostel) setHostel(dashData.hostel);
+      }
 
-      const bedsData = await bedsRes.json();
-      setBeds(bedsData.beds || []);
+      const roomsData = getVal(2);
+      if (roomsData?.rooms) setRooms(roomsData.rooms);
 
-      const resData = await resRes.json();
-      setResidents(resData.residents || []);
+      const bedsData = getVal(3);
+      if (bedsData?.beds) setBeds(bedsData.beds);
 
-      const invData = await invRes.json();
-      setInvoices(invData.invoices || []);
+      const resData = getVal(4);
+      if (resData?.residents) setResidents(resData.residents);
 
-      const payData = await payRes.json();
-      setPayments(payData.payments || []);
+      const invData = getVal(5);
+      if (invData?.invoices) setInvoices(invData.invoices);
 
-      const cmpData = await cmpRes.json();
-      setComplaints(cmpData.complaints || []);
+      const payData = getVal(6);
+      if (payData?.payments) setPayments(payData.payments);
 
-      const expData = await expRes.json();
-      setExpenses(expData.expenses || []);
+      const cmpData = getVal(7);
+      if (cmpData?.complaints) setComplaints(cmpData.complaints);
 
-      const invtData = await invtRes.json();
-      setInventory(invtData.inventory || []);
+      const expData = getVal(8);
+      if (expData?.expenses) setExpenses(expData.expenses);
 
-      const visData = await visRes.json();
-      setVisitors(visData.visitors || []);
+      const invtData = getVal(9);
+      if (invtData?.inventory) setInventory(invtData.inventory);
 
-      const stfData = await stfRes.json();
-      setStaffList(stfData.staff || []);
+      const visData = getVal(10);
+      if (visData?.visitors) setVisitors(visData.visitors);
 
-      const ancData = await ancRes.json();
-      setAnnouncements(ancData.announcements || []);
+      const stfData = getVal(11);
+      if (stfData?.staff) setStaffList(stfData.staff);
 
-      const audData = await audRes.json();
-      setAuditLogs(audData.auditLogs || []);
+      const ancData = getVal(12);
+      if (ancData?.announcements) setAnnouncements(ancData.announcements);
 
-      const chkData = await chkRes.json();
-      setCheckoutRecords(chkData.checkouts || []);
-    } catch (err) {
-      console.error('Data fetch error:', err);
+      const audData = getVal(13);
+      if (audData?.auditLogs) setAuditLogs(audData.auditLogs);
+
+      const chkData = getVal(14);
+      if (chkData?.checkouts) setCheckoutRecords(chkData.checkouts);
+
+      const dbData = getVal(15);
+      if (dbData) setDbStatus(dbData);
+    } catch {
+      // Suppress unhandled crash
     }
-  };
+  }, []);
 
   // Initial Data Fetch
   useEffect(() => {
-    let isMounted = true;
-    Promise.resolve().then(() => {
-      if (isMounted) {
-        fetchInitialData();
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   // Switch persona handler
   const handleSwitchUser = async (role: UserRole) => {
@@ -450,6 +498,8 @@ export default function App() {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         onOpenChangeUpi={() => setIsChangeUpiOpen(true)}
         upiId={hostel.bankDetails?.upiId}
+        onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        onOpen2faSettings={() => setIs2faSettingsOpen(true)}
       />
 
       <div className="flex-1 flex">
@@ -464,10 +514,19 @@ export default function App() {
           onCloseMobile={() => setSidebarOpen(false)}
           onOpenChangeUpi={() => setIsChangeUpiOpen(true)}
           upiId={hostel.bankDetails?.upiId}
+          activeResidentTab={residentPortalTab}
+          onSelectResidentTab={(tab) => {
+            setResidentPortalTab(tab);
+            setActiveView('RESIDENT_PORTAL');
+          }}
+          residentTicketsCount={complaints.filter(c => c.residentId === loggedInResident?.id).length || 1}
+          noticesCount={announcements.length || 2}
+          onOpen2faSettings={() => setIs2faSettingsOpen(true)}
+          twoFactorEnabled={currentUser.twoFactorEnabled}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 lg:pl-64 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full transition-all">
+        <main className="flex-1 lg:pl-64 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto w-full transition-all">
           {/* ============================================================ */}
           {/* VIEW: RESIDENT PORTAL (Dedicated View for Resident Role) */}
           {/* ============================================================ */}
@@ -479,6 +538,8 @@ export default function App() {
               complaints={complaints}
               announcements={announcements}
               hostel={hostel}
+              currentTab={residentPortalTab}
+              onTabChange={(tab) => setResidentPortalTab(tab)}
               onPayInvoice={(inv) => {
                 setSelectedInvoiceForPayment(inv);
                 setIsPaymentOpen(true);
@@ -506,9 +567,20 @@ export default function App() {
               {/* Top Row Action Banner */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div>
-                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                    Hostel Operational Command Center
-                  </h1>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                      Hostel Operational Command Center
+                    </h1>
+                    {/* Database Engine Telemetry Pill */}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                      dbStatus?.mongodb?.connected
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${dbStatus?.mongodb?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                      <span>DB: {dbStatus?.activeEngine || 'Local + Mongo Sync'}</span>
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Live telemetry for Sri Srinivasa Luxury Boys Hostel (Madhapur Branch)
                   </p>
@@ -542,7 +614,7 @@ export default function App() {
               </div>
 
               {/* KPI Metric Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* 1. Occupancy */}
                 <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-2">
                   <div className="flex items-center justify-between text-slate-500">
@@ -724,18 +796,18 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="space-y-2.5 sm:space-y-0 sm:divide-y sm:divide-slate-100">
                     {payments.slice(0, 4).map((p) => (
-                      <div key={p.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div key={p.id} className="p-3 sm:p-0 sm:py-2.5 bg-slate-50/80 sm:bg-transparent rounded-xl border border-slate-200/60 sm:border-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900">{p.residentName}</span>
-                            <span className="font-mono text-[10px] text-slate-400">{p.receiptNumber}</span>
+                            <span className="font-mono text-[10px] text-slate-400 bg-white sm:bg-transparent px-1.5 py-0.5 rounded border border-slate-200 sm:border-0">{p.receiptNumber}</span>
                           </div>
-                          <span className="text-slate-500 text-[11px]">{p.paymentDate} • {p.paymentMethod}</span>
+                          <span className="text-slate-500 text-[11px] block mt-0.5">{p.paymentDate} • {p.paymentMethod}</span>
                         </div>
-                        <div className="text-right">
-                          <span className="font-extrabold text-emerald-700 block">
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t border-slate-200/60 sm:border-0">
+                          <span className="font-extrabold text-emerald-700 block text-sm sm:text-xs">
                             ₹{p.amount.toLocaleString('en-IN')}
                           </span>
                           <button
@@ -746,9 +818,9 @@ export default function App() {
                               setDocModalType('RECEIPT');
                               setIsPrintDocOpen(true);
                             }}
-                            className="text-[10px] text-slate-500 hover:text-amber-700 flex items-center gap-1 ml-auto"
+                            className="text-[10px] font-semibold text-slate-600 hover:text-amber-700 flex items-center gap-1 bg-white sm:bg-transparent px-2 py-1 sm:px-0 sm:py-0 rounded-lg border border-slate-200 sm:border-0"
                           >
-                            <Printer className="w-3 h-3" /> Receipt
+                            <Printer className="w-3 h-3 text-slate-500" /> Receipt
                           </button>
                         </div>
                       </div>
@@ -768,17 +840,18 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="divide-y divide-slate-100">
+                  <div className="space-y-2.5 sm:space-y-0 sm:divide-y sm:divide-slate-100">
                     {complaints.slice(0, 4).map((c) => (
-                      <div key={c.id} className="py-2.5 flex items-center justify-between text-xs">
-                        <div className="max-w-xs">
+                      <div key={c.id} className="p-3 sm:p-0 sm:py-2.5 bg-slate-50/80 sm:bg-transparent rounded-xl border border-slate-200/60 sm:border-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="max-w-md">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 uppercase text-[10px]">{c.category}</span>
-                            <span className="text-slate-500 text-[11px]">Room {c.roomNumber}</span>
+                            <span className="font-bold text-slate-900 uppercase text-[10px] bg-slate-200/80 px-1.5 py-0.2 rounded">{c.category}</span>
+                            <span className="text-slate-500 text-[11px] font-medium">Room {c.roomNumber}</span>
                           </div>
-                          <p className="text-slate-600 truncate text-[11px] mt-0.5">{c.description}</p>
+                          <p className="text-slate-700 font-medium text-[11px] mt-1 line-clamp-2">{c.description}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center justify-between sm:justify-end pt-2 sm:pt-0 border-t border-slate-200/60 sm:border-0">
+                          <span className="text-[10px] text-slate-400 sm:hidden">Status:</span>
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                             c.status === 'RESOLVED'
                               ? 'bg-emerald-100 text-emerald-800'
@@ -1919,6 +1992,57 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Compact Mobile Navigation Dock & Drawer */}
+      <MobileNav
+        currentRole={currentUser.role}
+        activeView={activeView}
+        onSelectView={setActiveView}
+        openComplaintsCount={openComplaintsCount}
+        pendingInvoicesCount={pendingInvoices.length}
+        onOpenChangeUpi={() => setIsChangeUpiOpen(true)}
+        upiId={hostel.bankDetails?.upiId}
+        mongoConnected={dbStatus?.mongodb?.connected}
+        activeResidentTab={residentPortalTab}
+        onSelectResidentTab={(tab) => {
+          setResidentPortalTab(tab);
+          setActiveView('RESIDENT_PORTAL');
+        }}
+        residentTicketsCount={complaints.filter(c => c.residentId === loggedInResident?.id).length || 1}
+        noticesCount={announcements.length || 2}
+      />
+
+      {/* 14. 2FA-Aware Enterprise Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        availableUsers={availableUsers}
+        onSuccess={(user, token) => {
+          setCurrentUser(user);
+          if (user.role === 'RESIDENT') {
+            setActiveView('RESIDENT_PORTAL');
+          } else {
+            setActiveView('DASHBOARD');
+          }
+          addToast('success', `Welcome back, ${user.name}!`, `Authenticated securely with 2FA protection as ${user.role.replace('_', ' ')}.`);
+          fetchInitialData();
+        }}
+        onShowToast={(msg, type) => addToast(type || 'info', msg)}
+      />
+
+      {/* 15. Two-Factor Authentication Configuration & Admin Policy Modal */}
+      <TwoFactorSettingsModal
+        isOpen={is2faSettingsOpen}
+        onClose={() => setIs2faSettingsOpen(false)}
+        currentUser={currentUser}
+        policy={twoFactorPolicy}
+        onUserUpdated={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          setAvailableUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+        }}
+        onPolicyUpdated={(updatedPolicy) => setTwoFactorPolicy(updatedPolicy)}
+        onShowToast={(msg, type) => addToast(type || 'info', msg)}
+      />
     </div>
   );
 }

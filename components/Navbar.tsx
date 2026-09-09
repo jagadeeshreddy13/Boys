@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { User, UserRole } from '@/lib/db/types';
-import { Building2, UserCircle, Bell, UserPlus, RefreshCw, ChevronDown, Check, Shield, Menu, QrCode } from 'lucide-react';
+import { Building2, UserCircle, Bell, UserPlus, RefreshCw, ChevronDown, Check, Shield, Menu, QrCode, ShieldCheck, KeyRound } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User;
@@ -16,6 +16,9 @@ interface NavbarProps {
   onToggleSidebar: () => void;
   onOpenChangeUpi?: () => void;
   upiId?: string;
+  activeViewTitle?: string;
+  onOpenLoginModal?: () => void;
+  onOpen2faSettings?: () => void;
 }
 
 export default function Navbar({
@@ -29,7 +32,10 @@ export default function Navbar({
   pendingFeesCount,
   onToggleSidebar,
   onOpenChangeUpi,
-  upiId
+  upiId,
+  activeViewTitle,
+  onOpenLoginModal,
+  onOpen2faSettings
 }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -50,31 +56,38 @@ export default function Navbar({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         {/* Left: Mobile Toggle & Brand */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
+            className="lg:hidden p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
             title="Toggle Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center text-white font-black text-lg shadow-sm shadow-amber-600/30">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-amber-600 flex items-center justify-center text-white font-black text-sm sm:text-lg shadow-sm shadow-amber-600/30 shrink-0">
               SS
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base text-slate-900 tracking-tight">
-                  Sri Srinivasa Hostel ERP
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight truncate">
+                  Sri Srinivasa <span className="hidden xs:inline">Hostel</span> ERP
                 </span>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                  Madhapur, Hyderabad
+                <span className="hidden md:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  Madhapur
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
-                Complete Boys Hostel Management & Billing System
-              </p>
+              <div className="flex items-center gap-1.5">
+                {activeViewTitle && (
+                  <span className="lg:hidden text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    {activeViewTitle}
+                  </span>
+                )}
+                <p className="text-[11px] text-slate-500 font-medium hidden sm:block truncate">
+                  Boys Hostel Management & Billing System
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -171,7 +184,40 @@ export default function Navbar({
                   ))}
                 </div>
 
-                <div className="px-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div className="px-3 pt-2 border-t border-slate-100 space-y-1">
+                  {onOpen2faSettings && (
+                    <button
+                      onClick={() => {
+                        onOpen2faSettings();
+                        setDropdownOpen(false);
+                      }}
+                      className="w-full py-1.5 px-2 rounded-lg text-slate-700 hover:text-amber-800 hover:bg-amber-50 text-[11px] font-semibold flex items-center justify-between transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>2FA Security Settings</span>
+                      </div>
+                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                        currentUser.twoFactorEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {currentUser.twoFactorEnabled ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  )}
+
+                  {onOpenLoginModal && (
+                    <button
+                      onClick={() => {
+                        onOpenLoginModal();
+                        setDropdownOpen(false);
+                      }}
+                      className="w-full py-1.5 px-2 rounded-lg text-slate-700 hover:text-blue-800 hover:bg-blue-50 text-[11px] font-semibold flex items-center gap-1.5 transition-colors"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Login with 2FA / Password</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       onResetDatabase();

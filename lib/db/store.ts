@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { syncSnapshotToMongo } from './mongodb';
 import {
   Hostel,
   Building,
@@ -172,6 +173,15 @@ export function saveDb(data: DatabaseSchema) {
     fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
     console.warn('Could not write persistent DB file, keeping in memory:', err);
+  }
+
+  // Asynchronously synchronize snapshot to MongoDB if configured
+  try {
+    syncSnapshotToMongo(data).catch((err) => {
+      console.warn('[MongoDB Sync] Background sync error:', err?.message || err);
+    });
+  } catch {
+    // Non-blocking
   }
 }
 

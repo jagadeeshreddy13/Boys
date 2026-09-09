@@ -47,6 +47,16 @@ export interface User {
   residentId?: string;
   staffId?: string;
   createdAt: string;
+  twoFactorEnabled?: boolean;
+  twoFactorMethod?: 'SMS' | 'EMAIL' | 'BOTH';
+  twoFactorVerifiedAt?: string;
+}
+
+export interface TwoFactorPolicy {
+  enforceForAll: boolean;
+  enforceForStaff: boolean;
+  defaultMethod: 'SMS' | 'EMAIL' | 'BOTH';
+  otpValidityMinutes: number;
 }
 
 export interface Hostel {
@@ -370,4 +380,10 @@ export interface SystemSettings {
   smsNotifications: boolean;
   whatsappNotifications: boolean;
   emailNotifications: boolean;
+  twoFactorPolicy?: {
+    enforceForAll: boolean;
+    enforceForStaff: boolean;
+    defaultMethod: 'SMS' | 'EMAIL' | 'BOTH';
+    otpValidityMinutes: number;
+  };
 }

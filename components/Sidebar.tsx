@@ -20,7 +20,8 @@ import {
   History,
   ShieldCheck,
   Home,
-  FileSpreadsheet
+  FileSpreadsheet,
+  QrCode
 } from 'lucide-react';
 
 export type NavView =
@@ -50,6 +51,8 @@ interface SidebarProps {
   pendingInvoicesCount: number;
   isOpen: boolean;
   onCloseMobile: () => void;
+  onOpenChangeUpi?: () => void;
+  upiId?: string;
 }
 
 export default function Sidebar({
@@ -59,7 +62,9 @@ export default function Sidebar({
   openComplaintsCount,
   pendingInvoicesCount,
   isOpen,
-  onCloseMobile
+  onCloseMobile,
+  onOpenChangeUpi,
+  upiId
 }: SidebarProps) {
   interface NavItem {
     id: NavView;
@@ -233,9 +238,33 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* Footer Brand Info */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/50 text-[11px] text-slate-400">
-          <div className="flex items-center gap-2 mb-1">
+        {/* Footer Brand Info & UPI Quick Access */}
+        <div className="p-4 border-t border-slate-800 bg-slate-950/50 text-[11px] text-slate-400 space-y-2.5">
+          {currentRole !== 'RESIDENT' && onOpenChangeUpi && (
+            <button
+              onClick={() => {
+                onOpenChangeUpi();
+                onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold text-slate-200 transition-colors shadow-2xs group"
+              title="Configure Hostel UPI ID & Payment QR"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <QrCode className="w-3.5 h-3.5 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+                <div className="text-left truncate">
+                  <span className="block text-slate-200 text-xs leading-none">Hostel UPI QR</span>
+                  <span className="font-mono text-[10px] text-slate-400 truncate block mt-0.5 max-w-[130px]">
+                    {upiId || 'Configure'}
+                  </span>
+                </div>
+              </div>
+              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-md shrink-0">
+                EDIT
+              </span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
             <span className="font-semibold text-slate-300">RBAC Active: {currentRole}</span>
           </div>

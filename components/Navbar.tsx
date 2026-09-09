@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { User, UserRole } from '@/lib/db/types';
-import { Building2, UserCircle, Bell, UserPlus, RefreshCw, ChevronDown, Check, Shield, Menu } from 'lucide-react';
+import { Building2, UserCircle, Bell, UserPlus, RefreshCw, ChevronDown, Check, Shield, Menu, QrCode } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User;
@@ -14,6 +14,8 @@ interface NavbarProps {
   openComplaintsCount: number;
   pendingFeesCount: number;
   onToggleSidebar: () => void;
+  onOpenChangeUpi?: () => void;
+  upiId?: string;
 }
 
 export default function Navbar({
@@ -25,7 +27,9 @@ export default function Navbar({
   occupancyRate,
   openComplaintsCount,
   pendingFeesCount,
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenChangeUpi,
+  upiId
 }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -83,6 +87,21 @@ export default function Navbar({
             <span className="text-slate-500 font-medium">Occupancy:</span>
             <span className="font-extrabold text-slate-900">{occupancyRate}%</span>
           </div>
+
+          {/* Quick UPI ID Button (for Admin roles) */}
+          {currentUser.role !== 'RESIDENT' && onOpenChangeUpi && (
+            <button
+              onClick={onOpenChangeUpi}
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors shadow-2xs"
+              title="Configure Hostel UPI ID & Payment QR"
+            >
+              <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-[11px] text-slate-500 font-normal">UPI:</span>
+              <span className="font-mono text-[11px] font-bold text-slate-800 max-w-[140px] truncate">
+                {upiId || 'Configure'}
+              </span>
+            </button>
+          )}
 
           {/* Quick New Admission Button (for Admin roles) */}
           {currentUser.role !== 'RESIDENT' && (

@@ -30,6 +30,8 @@ import ExpenseModal from '@/components/ExpenseModal';
 import VisitorModal from '@/components/VisitorModal';
 import CanteenPOSModal from '@/components/CanteenPOSModal';
 import AutomatedBillingModal from '@/components/AutomatedBillingModal';
+import AddRoomModal from '@/components/AddRoomModal';
+import ChangeUpiModal from '@/components/ChangeUpiModal';
 import ResidentPortalView from '@/components/ResidentPortalView';
 import AuditTrailView from '@/components/AuditTrailView';
 import ReportingView from '@/components/ReportingView';
@@ -64,7 +66,8 @@ import {
   Phone,
   Eye,
   LogOut,
-  ArrowLeftRight
+  ArrowLeftRight,
+  QrCode
 } from 'lucide-react';
 
 import {
@@ -145,6 +148,8 @@ export default function App() {
   const [isVisitorOpen, setIsVisitorOpen] = useState(false);
   const [isCanteenOpen, setIsCanteenOpen] = useState(false);
   const [isBatchBillingOpen, setIsBatchBillingOpen] = useState(false);
+  const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
+  const [isChangeUpiOpen, setIsChangeUpiOpen] = useState(false);
 
   // Document Print Modal
   const [isPrintDocOpen, setIsPrintDocOpen] = useState(false);
@@ -388,6 +393,30 @@ export default function App() {
     fetchInitialData();
   };
 
+  // Add Room Created
+  const handleAddRoomSuccess = (newRoom: Room, newBeds: Bed[]) => {
+    setRooms(prev => [...prev, newRoom]);
+    if (newBeds && newBeds.length > 0) {
+      setBeds(prev => [...prev, ...newBeds]);
+    }
+    fetchInitialData();
+    addToast(
+      'success',
+      'Room Added Successfully',
+      `Room ${newRoom.roomNumber} (${newRoom.roomType.replace('_', ' ')}) with ${newBeds.length} bed(s) has been added to the floor plan.`
+    );
+  };
+
+  // UPI Settings Updated
+  const handleChangeUpiSuccess = (updatedHostel: Hostel, newUpiId: string) => {
+    setHostel(updatedHostel);
+    addToast(
+      'success',
+      'Hostel UPI Settings Updated',
+      `New receiving UPI address is "${newUpiId}". Dynamic QR updated across all receipts and bills.`
+    );
+  };
+
   // Calculate high-level stats
   const totalBeds = beds.length || 65;
   const occupiedBeds = beds.filter(b => b.status === 'OCCUPIED').length;
@@ -419,6 +448,8 @@ export default function App() {
         openComplaintsCount={openComplaintsCount}
         pendingFeesCount={pendingInvoices.length}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        onOpenChangeUpi={() => setIsChangeUpiOpen(true)}
+        upiId={hostel.bankDetails?.upiId}
       />
 
       <div className="flex-1 flex">
@@ -431,6 +462,8 @@ export default function App() {
           pendingInvoicesCount={pendingInvoices.length}
           isOpen={sidebarOpen}
           onCloseMobile={() => setSidebarOpen(false)}
+          onOpenChangeUpi={() => setIsChangeUpiOpen(true)}
+          upiId={hostel.bankDetails?.upiId}
         />
 
         {/* Main Content Area */}
@@ -779,23 +812,35 @@ export default function App() {
                   </p>
                 </div>
 
-                {/* Status Legend */}
-                <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-md bg-emerald-500"></span>
-                    <span>Available</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-md bg-blue-600"></span>
-                    <span>Occupied</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-md bg-purple-500"></span>
-                    <span>Reserved</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-md bg-rose-500"></span>
-                    <span>Maintenance</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  {currentUser.role !== 'RESIDENT' && (
+                    <button
+                      onClick={() => setIsAddRoomOpen(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add New Room</span>
+                    </button>
+                  )}
+
+                  {/* Status Legend */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-medium pl-2 sm:border-l sm:border-slate-200">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-md bg-emerald-500"></span>
+                      <span>Available</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-md bg-blue-600"></span>
+                      <span>Occupied</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-md bg-purple-500"></span>
+                      <span>Reserved</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-md bg-rose-500"></span>
+                      <span>Maintenance</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1219,6 +1264,19 @@ export default function App() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     Official receipts with words formatting and audit tracking
                   </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  {currentUser.role !== 'RESIDENT' && (
+                    <button
+                      onClick={() => setIsChangeUpiOpen(true)}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl shadow-2xs transition-colors"
+                      title="Configure UPI receiving address and settlement bank details"
+                    >
+                      <QrCode className="w-4 h-4 text-emerald-600" />
+                      <span>Configure UPI ID ({hostel.bankDetails?.upiId || 'Configure'})</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1685,6 +1743,8 @@ export default function App() {
         }}
         invoice={selectedInvoiceForPayment}
         onSuccess={handlePaymentSuccess}
+        upiId={hostel.bankDetails?.upiId}
+        onOpenChangeUpi={currentUser.role !== 'RESIDENT' ? () => setIsChangeUpiOpen(true) : undefined}
       />
 
       {/* 3. Checkout Modal */}
@@ -1758,7 +1818,24 @@ export default function App() {
         onSuccess={handleBatchBillingSuccess}
       />
 
-      {/* 11. Resident Profile Drawer / Details Modal */}
+      {/* 11. Add Room Modal */}
+      <AddRoomModal
+        isOpen={isAddRoomOpen}
+        onClose={() => setIsAddRoomOpen(false)}
+        onSuccess={handleAddRoomSuccess}
+        existingRooms={rooms}
+      />
+
+      {/* 12. Change UPI ID & Bank Settlement Modal */}
+      <ChangeUpiModal
+        isOpen={isChangeUpiOpen && currentUser.role !== 'RESIDENT'}
+        onClose={() => setIsChangeUpiOpen(false)}
+        hostel={hostel}
+        currentUpiId={hostel.bankDetails?.upiId}
+        onSuccess={handleChangeUpiSuccess}
+      />
+
+      {/* 13. Resident Profile Drawer / Details Modal */}
       {selectedResidentDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">

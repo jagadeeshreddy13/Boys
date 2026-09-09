@@ -2,13 +2,15 @@
 
 import React, { useState } from 'react';
 import { Invoice, PaymentMethod } from '@/lib/db/types';
-import { IndianRupee, CreditCard, QrCode, Building2, Banknote, ShieldCheck, X, CheckCircle, Loader2 } from 'lucide-react';
+import { IndianRupee, CreditCard, QrCode, Building2, Banknote, ShieldCheck, X, CheckCircle, Loader2, Copy, Check } from 'lucide-react';
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoice: Invoice | null;
   onSuccess: (paymentResult: any) => void;
+  upiId?: string;
+  onOpenChangeUpi?: () => void;
 }
 
 export default function PaymentModal({
@@ -16,6 +18,8 @@ export default function PaymentModal({
   onClose,
   invoice,
   onSuccess,
+  upiId,
+  onOpenChangeUpi,
 }: PaymentModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
   const [customAmount, setCustomAmount] = useState<number | null>(null);
@@ -25,6 +29,16 @@ export default function PaymentModal({
   const [gatewayStep, setGatewayStep] = useState<'FORM' | 'GATEWAY_SIMULATION' | 'SUCCESS'>('FORM');
   const [error, setError] = useState<string | null>(null);
   const [gatewayOrderId] = useState(() => 'order_ssh_' + Math.floor(10000000 + Math.random() * 90000000));
+  const [copiedUpi, setCopiedUpi] = useState(false);
+
+  const handleCopyUpi = () => {
+    const toCopy = upiId || 'srisrinivasahostel@okaxis';
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(toCopy);
+      setCopiedUpi(true);
+      setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  };
 
   const amount = customAmount !== null ? customAmount : (invoice?.outstandingBalance || 0);
 
@@ -272,6 +286,50 @@ export default function PaymentModal({
                   <span>Online Gateway</span>
                 </button>
               </div>
+
+              {paymentMethod === 'UPI' && (
+                <div className="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200/90 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <QrCode className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">
+                        Receiving UPI Handle
+                      </span>
+                      <span className="font-mono font-extrabold text-emerald-950 truncate block">
+                        {upiId || 'srisrinivasahostel@okaxis'}
+                      </span>
+                    </div>
+                  </div>
+                  {onOpenChangeUpi ? (
+                    <button
+                      type="button"
+                      onClick={onOpenChangeUpi}
+                      className="px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white border border-emerald-300 hover:bg-emerald-100/50 rounded-lg shadow-2xs transition-colors shrink-0"
+                    >
+                      Change UPI ID
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCopyUpi}
+                      className="px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white border border-emerald-300 hover:bg-emerald-100/50 rounded-lg shadow-2xs transition-colors shrink-0 inline-flex items-center gap-1.5"
+                      title="Copy UPI ID to clipboard"
+                    >
+                      {copiedUpi ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-emerald-600" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Reference Number / UTR */}
